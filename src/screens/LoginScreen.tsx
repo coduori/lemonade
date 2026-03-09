@@ -7,35 +7,38 @@ import {
     KeyboardAvoidingView,
     Platform,
     ScrollView,
-    Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme } from '../theme';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
 import { Card } from '../components/Card';
+import { useNotification } from '../context/NotificationContext';
+import { config } from '../config';
 
 interface LoginScreenProps {
     onLogin: (username: string) => void;
 }
-
-import { config } from '../config';
 
 const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const insets = useSafeAreaInsets();
+    const { showNotification } = useNotification();
 
     const handleLogin = async () => {
         if (!username.trim() || !password.trim()) {
-            Alert.alert('Error', 'Please enter both username and password');
+            showNotification('Please enter both username and password', 'error');
             return;
         }
 
         setIsLoading(true);
+        const loginUrl = `${config.baseUrl}/auth/login`;
+        console.log('Attempting login at:', loginUrl);
+
         try {
-            const response = await fetch(`${config.baseUrl}/auth/login`, {
+            const response = await fetch(loginUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -47,15 +50,17 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
             });
 
             const data = await response.json();
+            console.log('Login response:', data);
 
             if (response.ok) {
+                showNotification('Welcome back!', 'success');
                 onLogin(username);
             } else {
-                Alert.alert('Login Failed', data.message || 'Invalid credentials');
+                showNotification(data.message || 'Invalid credentials', 'error');
             }
         } catch (error) {
-            Alert.alert('Network Error', 'Could not connect to the server. Please check your connection.');
-            console.error('Login error:', error);
+            showNotification('Could not connect to the server. Please check your connection.', 'error');
+            console.error('Login error detail:', error);
         } finally {
             setIsLoading(false);
         }

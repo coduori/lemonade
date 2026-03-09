@@ -6,6 +6,9 @@ import DashboardScreen from './src/screens/DashboardScreen';
 
 import { theme } from './src/theme';
 
+import { NotificationProvider } from './src/context/NotificationContext';
+import { Notification } from './src/components/Notification';
+
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [username, setUsername] = useState('');
@@ -22,14 +25,17 @@ function App() {
 
   return (
     <SafeAreaProvider>
-      <StatusBar barStyle="dark-content" backgroundColor={theme.colors.background} />
-      <View style={styles.container}>
-        {isLoggedIn ? (
-          <DashboardScreen username={username} onLogout={handleLogout} />
-        ) : (
-          <LoginScreen onLogin={handleLogin} />
-        )}
-      </View>
+      <NotificationProvider>
+        <StatusBar barStyle="dark-content" backgroundColor={theme.colors.background} />
+        <View style={styles.container}>
+          {isLoggedIn ? (
+            <DashboardScreen username={username} onLogout={handleLogout} />
+          ) : (
+            <LoginScreen onLogin={handleLogin} />
+          )}
+        </View>
+        <Notification />
+      </NotificationProvider>
     </SafeAreaProvider>
   );
 }
