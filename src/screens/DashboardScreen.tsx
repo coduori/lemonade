@@ -45,44 +45,46 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ username, onLogout })
                     </Card>
                 </View>
 
-                <Card style={styles.balanceCard}>
-                    <Text style={styles.balanceLabel}>Overall coverage status</Text>
-                    <View style={styles.balanceRow}>
-                        <Text style={styles.balanceValue}>Excellent</Text>
-                        <View style={styles.trendBadge}>
-                            <Text style={styles.trendText}>Secure</Text>
-                        </View>
-                    </View>
-                    <Button
-                        title="View all policies"
-                        onPress={() => { }}
-                        style={styles.actionButton}
-                    />
-                </Card>
 
                 <View style={styles.sectionHeaderRow}>
-                    <Text style={styles.sectionTitle}>Recent Activity</Text>
-                    <TouchableOpacity>
-                        <Text style={styles.seeAllText}>See all</Text>
-                    </TouchableOpacity>
+                    <Text style={styles.sectionTitle}>Manage Insurance</Text>
                 </View>
 
                 {[
-                    { title: 'Login from iPhone 15', time: '2 hours ago', icon: '📱' },
-                    { title: 'Password changed', time: 'Yesterday', icon: '🔑' },
-                    { title: 'New device authorized', time: '3 days ago', icon: '🛡️' },
+                    {
+                        title: 'Check Validity',
+                        description: 'Check if your sticker is expired',
+                        icon: '🕒',
+                        color: '#FFF8F0',
+                        iconColor: '#FF8C00',
+                    },
+                    {
+                        title: 'Get Certificate',
+                        description: 'Download your insurance certificate',
+                        icon: '📥',
+                        color: '#F0FFF4',
+                        iconColor: '#22C55E',
+                    },
+                    {
+                        title: 'Cancel Cover',
+                        description: 'Request cancellation of policy',
+                        icon: '❌',
+                        color: '#FFF5F5',
+                        iconColor: '#EF4444',
+                    },
                 ].map((item, i) => (
-                    <View key={i} style={styles.activityItem}>
-                        <View style={styles.activityIconContainer}>
-                            <Text style={styles.activityIcon}>{item.icon}</Text>
+                    <TouchableOpacity key={i} style={styles.manageCard}>
+                        <View style={[styles.manageIconContainer, { backgroundColor: item.color }]}>
+                            <Text style={[styles.manageIcon, { color: item.iconColor }]}>{item.icon}</Text>
                         </View>
-                        <View style={styles.activityDetails}>
-                            <Text style={styles.activityTitle}>{item.title}</Text>
-                            <Text style={styles.activityTime}>{item.time}</Text>
+                        <View style={styles.manageDetails}>
+                            <Text style={styles.manageTitle}>{item.title}</Text>
+                            <Text style={styles.manageDescription}>{item.description}</Text>
                         </View>
-                        <Text style={styles.chevron}>›</Text>
-                    </View>
+                        <Text style={styles.manageChevron}>›</Text>
+                    </TouchableOpacity>
                 ))}
+
 
                 <View style={styles.featuredCard}>
                     <Text style={styles.featuredTitle}>Protect your cards</Text>
@@ -159,41 +161,6 @@ const styles = StyleSheet.create({
         ...theme.typography.h2,
         color: theme.colors.primary,
     },
-    balanceCard: {
-        marginBottom: theme.spacing.xl,
-        padding: theme.spacing.lg,
-    },
-    balanceLabel: {
-        ...theme.typography.label,
-        color: theme.colors.secondary,
-    },
-    balanceRow: {
-        flexDirection: 'row',
-        alignItems: 'flex-end',
-        marginVertical: theme.spacing.md,
-    },
-    balanceValue: {
-        ...theme.typography.h1,
-        fontSize: 40,
-        color: theme.colors.primary,
-    },
-    trendBadge: {
-        backgroundColor: theme.colors.accentSoft,
-        paddingVertical: 4,
-        paddingHorizontal: 10,
-        borderRadius: theme.borderRadius.pill,
-        marginLeft: 12,
-        marginBottom: 8,
-    },
-    trendText: {
-        color: theme.colors.primary,
-        fontSize: 12,
-        fontWeight: '700',
-    },
-    actionButton: {
-        paddingVertical: 14,
-        marginTop: 8,
-    },
     sectionHeaderRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -203,48 +170,6 @@ const styles = StyleSheet.create({
     sectionTitle: {
         ...theme.typography.h2,
         fontSize: 18,
-    },
-    seeAllText: {
-        ...theme.typography.label,
-        color: theme.colors.secondary,
-    },
-    activityItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: theme.colors.surface,
-        borderRadius: theme.borderRadius.xl,
-        padding: theme.spacing.md,
-        marginBottom: 12,
-    },
-    activityIconContainer: {
-        width: 48,
-        height: 48,
-        borderRadius: theme.borderRadius.lg,
-        backgroundColor: theme.colors.inputBackground,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginRight: theme.spacing.md,
-    },
-    activityIcon: {
-        fontSize: 20,
-    },
-    activityDetails: {
-        flex: 1,
-    },
-    activityTitle: {
-        ...theme.typography.label,
-        color: theme.colors.primary,
-        fontWeight: '700',
-    },
-    activityTime: {
-        ...theme.typography.caption,
-        color: theme.colors.secondary,
-        marginTop: 2,
-    },
-    chevron: {
-        fontSize: 20,
-        color: theme.colors.secondary,
-        marginLeft: 8,
     },
     featuredCard: {
         backgroundColor: theme.colors.accent,
@@ -269,6 +194,48 @@ const styles = StyleSheet.create({
         paddingHorizontal: 24,
         width: 'auto',
         alignSelf: 'flex-start',
+    },
+    manageCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: theme.colors.surface,
+        borderRadius: theme.borderRadius.lg,
+        padding: theme.spacing.md,
+        paddingVertical: theme.spacing.lg,
+        marginBottom: 16,
+        borderWidth: 1,
+        borderColor: '#F1F5F9',
+        ...theme.shadows.subtle,
+    },
+    manageIconContainer: {
+        width: 52,
+        height: 52,
+        borderRadius: theme.borderRadius.md,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: theme.spacing.md,
+    },
+    manageIcon: {
+        fontSize: 24,
+    },
+    manageDetails: {
+        flex: 1,
+    },
+    manageTitle: {
+        ...theme.typography.h2,
+        fontSize: 18,
+        color: '#1E293B',
+        marginBottom: 4,
+    },
+    manageDescription: {
+        ...theme.typography.caption,
+        color: '#64748B',
+        fontSize: 14,
+    },
+    manageChevron: {
+        fontSize: 24,
+        color: '#94A3B8',
+        marginLeft: 8,
     },
 });
 
