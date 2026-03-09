@@ -7,34 +7,36 @@ import DashboardScreen from './src/screens/DashboardScreen';
 import { theme } from './src/theme';
 
 import { NotificationProvider } from './src/context/NotificationContext';
+import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { Notification } from './src/components/Notification';
 
+const AppContent = () => {
+  const { isLoggedIn, username, logout } = useAuth();
+
+  return (
+    <View style={styles.container}>
+      {isLoggedIn && username ? (
+        <DashboardScreen
+          key="dashboard-view"
+          username={username}
+          onLogout={logout}
+        />
+      ) : (
+        <LoginScreen key="login-view" onLogin={() => { }} />
+      )}
+    </View>
+  );
+};
+
 function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [username, setUsername] = useState('');
-
-  const handleLogin = (name: string) => {
-    setUsername(name);
-    setIsLoggedIn(true);
-  };
-
-  const handleLogout = () => {
-    setIsLoggedIn(false);
-    setUsername('');
-  };
-
   return (
     <SafeAreaProvider>
       <NotificationProvider>
-        <StatusBar barStyle="dark-content" backgroundColor={theme.colors.background} />
-        <View style={styles.container}>
-          {isLoggedIn ? (
-            <DashboardScreen username={username} onLogout={handleLogout} />
-          ) : (
-            <LoginScreen onLogin={handleLogin} />
-          )}
-        </View>
-        <Notification />
+        <AuthProvider>
+          <StatusBar barStyle="dark-content" backgroundColor={theme.colors.background} />
+          <AppContent />
+          <Notification />
+        </AuthProvider>
       </NotificationProvider>
     </SafeAreaProvider>
   );

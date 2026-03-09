@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
     StyleSheet,
     View,
@@ -10,14 +10,60 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme } from '../theme';
 import { Card } from '../components/Card';
 import { Button } from '../components/Button';
+import { config } from '../config';
+import { useNotification } from '../context/NotificationContext';
+import { useAuth } from '../context/AuthContext';
 
 interface DashboardScreenProps {
     username: string;
     onLogout: () => void;
 }
 
-const DashboardScreen: React.FC<DashboardScreenProps> = ({ username, onLogout }) => {
+interface Product {
+    id: string;
+    name: string;
+    description: string;
+    category: string;
+    basePremium?: number;
+}
+
+type ViewMode = 'dashboard' | 'categories' | 'products';
+
+const DashboardScreen = ({ username, onLogout }: DashboardScreenProps) => {
+    const [viewMode, setViewMode] = useState<ViewMode>('dashboard');
+    const [products, setProducts] = useState<Product[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
+    const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
     const insets = useSafeAreaInsets();
+    const { showNotification } = useNotification();
+    const { authHeaders } = useAuth();
+
+    const fetchProducts = async () => {
+        setIsLoading(true);
+        try {
+            const response = await fetch(`${config.baseUrl}/products`, {
+                headers: {
+                    ...authHeaders,
+                }
+            });
+            const data = await response.json();
+            if (response.ok && Array.isArray(data)) {
+                setProducts(data);
+                setViewMode('categories');
+            } else {
+                showNotification(data?.message || 'Failed to fetch products or invalid data format', 'error');
+            }
+        } catch (error) {
+            showNotification('Network error while fetching products', 'error');
+            console.error(error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const safeProducts = Array.isArray(products) ? products : [];
+    const categories = Array.from(new Set(safeProducts.map(p => p.category)));
+    const filteredProducts = safeProducts.filter(p => p.category === selectedCategory);
 
     return (
         <View style={styles.container}>
@@ -41,61 +87,119 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ username, onLogout })
                     </Card>
                     <Card style={styles.statCardSmall}>
                         <Text style={styles.statLabelSmall}>Active Claims</Text>
-                        <Text style={[styles.statValueSmall, { color: theme.colors.error }]}>1</Text>
+                        <Text style={styles.statValueSmall}>0</Text>
                     </Card>
                 </View>
 
 
-                <View style={styles.sectionHeaderRow}>
-                    <Text style={styles.sectionTitle}>Manage Insurance</Text>
-                </View>
-
-                {[
-                    {
-                        title: 'Check Validity',
-                        description: 'Check if your sticker is expired',
-                        icon: '🕒',
-                        color: '#FFF8F0',
-                        iconColor: '#FF8C00',
-                    },
-                    {
-                        title: 'Get Certificate',
-                        description: 'Download your insurance certificate',
-                        icon: '📥',
-                        color: '#F0FFF4',
-                        iconColor: '#22C55E',
-                    },
-                    {
-                        title: 'Cancel Cover',
-                        description: 'Request cancellation of policy',
-                        icon: '❌',
-                        color: '#FFF5F5',
-                        iconColor: '#EF4444',
-                    },
-                ].map((item, i) => (
-                    <TouchableOpacity key={i} style={styles.manageCard}>
-                        <View style={[styles.manageIconContainer, { backgroundColor: item.color }]}>
-                            <Text style={[styles.manageIcon, { color: item.iconColor }]}>{item.icon}</Text>
+                {viewMode === 'dashboard' && (
+                    <>
+                        <View style={styles.sectionHeaderRow}>
+                            <Text style={styles.sectionTitle}>Manage Insurance</Text>
                         </View>
-                        <View style={styles.manageDetails}>
-                            <Text style={styles.manageTitle}>{item.title}</Text>
-                            <Text style={styles.manageDescription}>{item.description}</Text>
+
+                        <TouchableOpacity
+                            style={styles.manageCard}
+                            onPress={fetchProducts}
+                            disabled={isLoading}
+                        >
+                            <View style={[styles.manageIconContainer, { backgroundColor: '#E0F2FE' }]}>
+                                <Text style={[styles.manageIcon, { color: '#0EA5E9' }]}>📄</Text>
+                            </View>
+                            <View style={styles.manageDetails}>
+                                <Text style={styles.manageTitle}>Apply for new Policy</Text>
+                                <Text style={styles.manageDescription}>{isLoading ? 'Loading products...' : 'Start a new insurance application'}</Text>
+                            </View>
+                            <Text style={styles.manageChevron}>›</Text>
+                        </TouchableOpacity>
+
+                        {[
+                            {
+                                title: 'Check Validity',
+                                description: 'Check if your sticker is expired',
+                                icon: '🕒',
+                                color: '#FFF8F0',
+                                iconColor: '#FF8C00',
+                            },
+                            {
+                                title: 'Get Certificate',
+                                description: 'Download your insurance certificate',
+                                icon: '📥',
+                                color: '#F0FFF4',
+                                iconColor: '#22C55E',
+                            },
+                            {
+                                title: 'Cancel Cover',
+                                description: 'Request cancellation of policy',
+                                icon: '❌',
+                                color: '#FFF5F5',
+                                iconColor: '#EF4444',
+                            },
+                        ].map((item, i) => (
+                            <TouchableOpacity key={i} style={styles.manageCard}>
+                                <View style={[styles.manageIconContainer, { backgroundColor: item.color }]}>
+                                    <Text style={[styles.manageIcon, { color: item.iconColor }]}>{item.icon}</Text>
+                                </View>
+                                <View style={styles.manageDetails}>
+                                    <Text style={styles.manageTitle}>{item.title}</Text>
+                                    <Text style={styles.manageDescription}>{item.description}</Text>
+                                </View>
+                                <Text style={styles.manageChevron}>›</Text>
+                            </TouchableOpacity>
+                        ))}
+                    </>
+                )}
+
+                {viewMode === 'categories' && (
+                    <>
+                        <View style={styles.sectionHeaderRow}>
+                            <TouchableOpacity onPress={() => setViewMode('dashboard')} style={styles.backButton}>
+                                <Text style={styles.backButtonText}>← Back</Text>
+                            </TouchableOpacity>
+                            <Text style={styles.sectionTitle}>Select Category</Text>
                         </View>
-                        <Text style={styles.manageChevron}>›</Text>
-                    </TouchableOpacity>
-                ))}
+                        <View style={styles.categoryGrid}>
+                            {categories.map((category, i) => (
+                                <TouchableOpacity
+                                    key={i}
+                                    style={styles.categoryCard}
+                                    onPress={() => {
+                                        setSelectedCategory(category);
+                                        setViewMode('products');
+                                    }}
+                                >
+                                    <Text style={styles.categoryIcon}>📦</Text>
+                                    <Text style={styles.categoryName}>{category}</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                    </>
+                )}
+
+                {viewMode === 'products' && (
+                    <>
+                        <View style={styles.sectionHeaderRow}>
+                            <TouchableOpacity onPress={() => setViewMode('categories')} style={styles.backButton}>
+                                <Text style={styles.backButtonText}>← Back</Text>
+                            </TouchableOpacity>
+                            <Text style={styles.sectionTitle}>{selectedCategory}</Text>
+                        </View>
+                        {filteredProducts.map((product) => (
+                            <TouchableOpacity key={product.id} style={styles.manageCard}>
+                                <View style={[styles.manageIconContainer, { backgroundColor: theme.colors.accentSoft }]}>
+                                    <Text style={[styles.manageIcon, { color: theme.colors.primary }]}>🛡️</Text>
+                                </View>
+                                <View style={styles.manageDetails}>
+                                    <Text style={styles.manageTitle}>{product.name}</Text>
+                                    <Text style={styles.manageDescription}>{product.description}</Text>
+                                </View>
+                                <Text style={styles.manageChevron}>›</Text>
+                            </TouchableOpacity>
+                        ))}
+                    </>
+                )}
 
 
-                <View style={styles.featuredCard}>
-                    <Text style={styles.featuredTitle}>Protect your cards</Text>
-                    <Text style={styles.featuredSubtitle}>Enable dynamic CVV for added security.</Text>
-                    <Button
-                        title="Enable Now"
-                        onPress={() => { }}
-                        variant="primary"
-                        style={styles.featuredButton}
-                    />
-                </View>
             </ScrollView>
         </View>
     );
@@ -158,7 +262,8 @@ const styles = StyleSheet.create({
         marginBottom: 4,
     },
     statValueSmall: {
-        ...theme.typography.h2,
+        fontSize: 32,
+        fontWeight: '800',
         color: theme.colors.primary,
     },
     sectionHeaderRow: {
@@ -170,30 +275,6 @@ const styles = StyleSheet.create({
     sectionTitle: {
         ...theme.typography.h2,
         fontSize: 18,
-    },
-    featuredCard: {
-        backgroundColor: theme.colors.accent,
-        borderRadius: theme.borderRadius.xxl,
-        padding: theme.spacing.lg,
-        marginTop: theme.spacing.lg,
-    },
-    featuredTitle: {
-        ...theme.typography.h2,
-        fontSize: 20,
-        marginBottom: 8,
-    },
-    featuredSubtitle: {
-        ...theme.typography.body,
-        fontSize: 14,
-        color: theme.colors.primary,
-        opacity: 0.7,
-        marginBottom: 20,
-    },
-    featuredButton: {
-        paddingVertical: 12,
-        paddingHorizontal: 24,
-        width: 'auto',
-        alignSelf: 'flex-start',
     },
     manageCard: {
         flexDirection: 'row',
@@ -236,6 +317,40 @@ const styles = StyleSheet.create({
         fontSize: 24,
         color: '#94A3B8',
         marginLeft: 8,
+    },
+    backButton: {
+        marginRight: 12,
+        padding: 4,
+    },
+    backButtonText: {
+        color: theme.colors.primary,
+        fontWeight: '700',
+        fontSize: 16,
+    },
+    categoryGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        justifyContent: 'space-between',
+    },
+    categoryCard: {
+        width: '48%',
+        backgroundColor: theme.colors.surface,
+        borderRadius: theme.borderRadius.lg,
+        padding: theme.spacing.lg,
+        alignItems: 'center',
+        marginBottom: 16,
+        borderWidth: 1,
+        borderColor: '#F1F5F9',
+        ...theme.shadows.subtle,
+    },
+    categoryIcon: {
+        fontSize: 32,
+        marginBottom: 12,
+    },
+    categoryName: {
+        ...theme.typography.label,
+        textAlign: 'center',
+        color: theme.colors.primary,
     },
 });
 

@@ -14,6 +14,7 @@ import { Button } from '../components/Button';
 import { Input } from '../components/Input';
 import { Card } from '../components/Card';
 import { useNotification } from '../context/NotificationContext';
+import { useAuth } from '../context/AuthContext';
 import { config } from '../config';
 
 interface LoginScreenProps {
@@ -26,6 +27,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
     const [isLoading, setIsLoading] = useState(false);
     const insets = useSafeAreaInsets();
     const { showNotification } = useNotification();
+    const { login } = useAuth();
 
     const handleLogin = async () => {
         if (!username.trim() || !password.trim()) {
@@ -49,14 +51,16 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
                 }),
             });
 
-            const data = await response.json();
-            console.log('Login response:', data);
+            const responseData = await response.json();
+            console.log('Login response:', responseData);
 
-            if (response.ok) {
+            if (response.ok && responseData.data?.success) {
+                const { token, ttl } = responseData.data;
                 showNotification('Welcome back!', 'success');
+                login(username, token, ttl);
                 onLogin(username);
             } else {
-                showNotification(data.message || 'Invalid credentials', 'error');
+                showNotification(responseData.message || responseData.data?.message || 'Invalid credentials', 'error');
             }
         } catch (error) {
             showNotification('Could not connect to the server. Please check your connection.', 'error');
