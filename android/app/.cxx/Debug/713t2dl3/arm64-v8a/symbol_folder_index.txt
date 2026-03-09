@@ -1,0 +1,1 @@
+/Users/oduori/projects/anchorage/app/android/app/build/intermediates/cxx/Debug/713t2dl3/obj/arm64-v8a
