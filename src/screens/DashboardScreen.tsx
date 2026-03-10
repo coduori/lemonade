@@ -15,6 +15,7 @@ import { useNotification } from '../context/NotificationContext';
 import { useAuth } from '../context/AuthContext';
 import { Input } from '../components/Input';
 import { MaterialIcon } from '../components/MaterialIcon';
+import { ComboBox } from '../components/ComboBox';
 import * as yup from 'yup';
 
 interface DashboardScreenProps {
@@ -28,6 +29,18 @@ interface Product {
     description: string;
     category: string;
     basePremium?: number;
+}
+
+interface Rider {
+    id: string;
+    name: string;
+    description: string;
+    requiresValue: boolean;
+}
+
+interface SelectedRider {
+    riderId: string;
+    value?: string;
 }
 
 const vehicleDataSchema = yup.object({
@@ -86,6 +99,8 @@ const DashboardScreen = ({ username, onLogout }: DashboardScreenProps) => {
     const [isLoading, setIsLoading] = useState(false);
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+    const [riders, setRiders] = useState<Rider[]>([]);
+    const [selectedRiders, setSelectedRiders] = useState<SelectedRider[]>([]);
     const [vehicleData, setVehicleData] = useState<VehicleData>({});
     const [searchQuery, setSearchQuery] = useState('');
     const insets = useSafeAreaInsets();
@@ -116,6 +131,20 @@ const DashboardScreen = ({ username, onLogout }: DashboardScreenProps) => {
         }
     };
 
+    const fetchRiders = async () => {
+        try {
+            const response = await fetch(`${config.baseUrl}/riders`, {
+                headers: authHeaders,
+            });
+            const data = await response.json();
+            if (response.ok) {
+                setRiders(data.data || []);
+            }
+        } catch (error) {
+            console.error('Failed to fetch riders:', error);
+        }
+    };
+
     const handleCompare = async () => {
         if (!selectedProduct) return;
         setIsLoading(true);
@@ -126,7 +155,10 @@ const DashboardScreen = ({ username, onLogout }: DashboardScreenProps) => {
                     ...vehicleData,
                     vehicleValue: undefined, // ensure it's not in vehicleData if it belongs outside
                 },
-                riderOptions: [], // Base implementation
+                riderOptions: selectedRiders.map(r => ({
+                    riderId: r.riderId,
+                    value: r.value ? parseFloat(r.value) : undefined,
+                })),
                 vehicleValue: vehicleData.vehicleValue ? parseFloat(vehicleData.vehicleValue) : undefined,
             };
 
@@ -279,7 +311,19 @@ const DashboardScreen = ({ username, onLogout }: DashboardScreenProps) => {
                                 <Text style={styles.subSectionTitle}>Search Results</Text>
                                 {searchResults.length > 0 ? (
                                     searchResults.map((product) => (
-                                        <TouchableOpacity key={product.id} style={styles.manageCard}>
+                                        <TouchableOpacity
+                                            key={product.id}
+                                            style={styles.manageCard}
+                                            onPress={() => {
+                                                setSelectedProduct(product);
+                                                setVehicleData({});
+                                                setSelectedRiders([]);
+                                                if (product.category.toUpperCase() === 'COMP' || product.name.toUpperCase().includes('COMP')) {
+                                                    fetchRiders();
+                                                }
+                                                setViewMode('compare');
+                                            }}
+                                        >
                                             <View style={[styles.manageIconContainer, { backgroundColor: theme.colors.accentSoft }]}>
                                                 <MaterialIcon name="verified-user" size={24} color={theme.colors.primary} />
                                             </View>
@@ -343,6 +387,10 @@ const DashboardScreen = ({ username, onLogout }: DashboardScreenProps) => {
                                 onPress={() => {
                                     setSelectedProduct(product);
                                     setVehicleData({});
+                                    setSelectedRiders([]);
+                                    if (product.category.toUpperCase() === 'COMP' || product.name.toUpperCase().includes('COMP')) {
+                                        fetchRiders();
+                                    }
                                     setViewMode('compare');
                                 }}
                             >
@@ -372,16 +420,6 @@ const DashboardScreen = ({ username, onLogout }: DashboardScreenProps) => {
                             <Text style={styles.formTitle}>{selectedProduct.name}</Text>
                             <Text style={styles.formCategory}>{selectedProduct.category}</Text>
 
-                            <Input
-                                label="Vehicle Registration"
-                                placeholder="KAA123A"
-                                value={vehicleData.registration}
-                                autoCapitalize="characters"
-                                onChangeText={(text) => {
-                                    const formatted = text.toUpperCase().replace(/\s/g, '');
-                                    setVehicleData({ ...vehicleData, registration: formatted });
-                                }}
-                            />
 
                             {(selectedProduct.category.toUpperCase() === 'COMMERCIAL' || selectedProduct.name.toUpperCase().includes('COMMERCIAL')) && (
                                 <Input
@@ -444,6 +482,41 @@ const DashboardScreen = ({ username, onLogout }: DashboardScreenProps) => {
                                             />
                                         </View>
                                     </View>
+
+                                    {riders.length > 0 && (
+                                        <View style={styles.ridersSection}>
+                                            <ComboBox
+                                                label="Desired Insurance Riders"
+                                                options={riders}
+                                                selectedIds={selectedRiders.map(r => r.riderId)}
+                                                onSelect={(id) => setSelectedRiders([...selectedRiders, { riderId: id }])}
+                                                onRemove={(id) => setSelectedRiders(selectedRiders.filter(r => r.riderId !== id))}
+                                                placeholder="Choose riders..."
+                                            />
+
+                                            {selectedRiders.map((selectedRider) => {
+                                                const rider = riders.find(r => r.id === selectedRider.riderId);
+                                                if (rider && rider.requiresValue) {
+                                                    return (
+                                                        <View key={rider.id} style={styles.riderValueInput}>
+                                                            <Input
+                                                                label={`Value for ${rider.name}`}
+                                                                placeholder="Enter amount"
+                                                                keyboardType="numeric"
+                                                                value={selectedRider.value}
+                                                                onChangeText={(text) => {
+                                                                    setSelectedRiders(selectedRiders.map(r =>
+                                                                        r.riderId === rider.id ? { ...r, value: text } : r
+                                                                    ));
+                                                                }}
+                                                            />
+                                                        </View>
+                                                    );
+                                                }
+                                                return null;
+                                            })}
+                                        </View>
+                                    )}
                                 </>
                             )}
 
@@ -643,6 +716,42 @@ const styles = StyleSheet.create({
     row: {
         flexDirection: 'row',
         justifyContent: 'space-between',
+    },
+    ridersSection: {
+        marginTop: 24,
+        paddingTop: 24,
+        borderTopWidth: 1,
+        borderTopColor: '#F1F5F9',
+    },
+    ridersTitle: {
+        ...theme.typography.label,
+        color: theme.colors.primary,
+        marginBottom: 16,
+    },
+    riderItem: {
+        marginBottom: 16,
+    },
+    riderHeader: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+    },
+    riderTextContainer: {
+        marginLeft: 12,
+        flex: 1,
+    },
+    riderName: {
+        ...theme.typography.body,
+        fontWeight: '600',
+        color: '#1E293B',
+    },
+    riderDesc: {
+        ...theme.typography.caption,
+        color: '#64748B',
+        marginTop: 2,
+    },
+    riderValueInput: {
+        marginTop: 12,
+        marginLeft: 36,
     },
 });
 
