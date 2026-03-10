@@ -12,6 +12,8 @@ const FallbackIcons: Record<string, string> = {
     'chevron-right': '›',
     'arrow-back': '←',
     'search': '🔍',
+    'visibility': '👁️',
+    'visibility-off': '🙈',
 };
 
 interface MaterialIconProps {

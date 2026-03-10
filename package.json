@@ -14,10 +14,10 @@
     "start:dev": "npm run env:dev && npm start -- --reset-cache",
     "start:staging": "npm run env:staging && npm start -- --reset-cache",
     "start:prod": "npm run env:prod && npm start -- --reset-cache",
-    "build:android:staging": "npm run env:staging && cd android && ./gradlew assembleRelease",
-    "build:android:prod": "npm run env:prod && cd android && ./gradlew assembleRelease",
-    "build:android:staging:bundle": "npm run env:staging && cd android && ./gradlew bundleRelease",
-    "build:android:prod:bundle": "npm run env:prod && cd android && ./gradlew bundleRelease",
+    "build:android:staging": "npm run env:staging && npm run clean && cd android && ./gradlew assembleRelease",
+    "build:android:prod": "npm run env:prod && npm run clean && cd android && ./gradlew assembleRelease",
+    "build:android:staging:bundle": "npm run env:staging && npm run clean && cd android && ./gradlew bundleRelease",
+    "build:android:prod:bundle": "npm run env:prod && npm run clean && cd android && ./gradlew bundleRelease",
     "build:ios:staging": "npm run env:staging && npx react-native build-ios --mode Release",
     "build:ios:prod": "npm run env:prod && npx react-native build-ios --mode Release",
     "clean": "watchman watch-del-all && rm -rf $TMPDIR/metro-cache && cd android && ./gradlew clean"
@@ -29,6 +29,7 @@
     "react-native": "0.84.1",
     "react-native-safe-area-context": "^5.5.2",
     "react-native-vector-icons": "^10.3.0",
+    "socket.io-client": "^4.8.3",
     "yup": "^1.7.1"
   },
   "devDependencies": {

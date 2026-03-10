@@ -16,6 +16,7 @@ import { Card } from '../components/Card';
 import { useNotification } from '../context/NotificationContext';
 import { useAuth } from '../context/AuthContext';
 import { config } from '../config';
+import { MaterialIcon } from '../components/MaterialIcon';
 
 interface LoginScreenProps {
     onLogin: (username: string) => void;
@@ -24,6 +25,7 @@ interface LoginScreenProps {
 const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const insets = useSafeAreaInsets();
     const { showNotification } = useNotification();
@@ -98,7 +100,16 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
                         placeholder="••••••••"
                         value={password}
                         onChangeText={setPassword}
-                        secureTextEntry
+                        secureTextEntry={!showPassword}
+                        rightElement={
+                            <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                                <MaterialIcon
+                                    name={showPassword ? 'visibility-off' : 'visibility'}
+                                    size={20}
+                                    color={theme.colors.secondary}
+                                />
+                            </TouchableOpacity>
+                        }
                     />
 
                     <Button

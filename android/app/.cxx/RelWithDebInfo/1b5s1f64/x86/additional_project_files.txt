@@ -1,0 +1,6 @@
+/Users/oduori/projects/anchorage/app/android/app/.cxx/RelWithDebInfo/1b5s1f64/x86/RNVectorIconsSpec_autolinked_build/CMakeFiles/react_codegen_RNVectorIconsSpec.dir/RNVectorIconsSpec-generated.cpp.o
+/Users/oduori/projects/anchorage/app/android/app/.cxx/RelWithDebInfo/1b5s1f64/x86/RNVectorIconsSpec_autolinked_build/CMakeFiles/react_codegen_RNVectorIconsSpec.dir/react/renderer/components/RNVectorIconsSpec/ComponentDescriptors.cpp.o
+/Users/oduori/projects/anchorage/app/android/app/.cxx/RelWithDebInfo/1b5s1f64/x86/RNVectorIconsSpec_autolinked_build/CMakeFiles/react_codegen_RNVectorIconsSpec.dir/react/renderer/components/RNVectorIconsSpec/EventEmitters.cpp.o
+/Users/oduori/projects/anchorage/app/android/app/.cxx/RelWithDebInfo/1b5s1f64/x86/RNVectorIconsSpec_autolinked_build/CMakeFiles/react_codegen_RNVectorIconsSpec.dir/react/renderer/components/RNVectorIconsSpec/Props.cpp.o
+/Users/oduori/projects/anchorage/app/android/app/.cxx/RelWithDebInfo/1b5s1f64/x86/RNVectorIconsSpec_autolinked_build/CMakeFiles/react_codegen_RNVectorIconsSpec.dir/react/renderer/components/RNVectorIconsSpec/ShadowNodes.cpp.o
+/Users/oduori/projects/anchorage/app/android/app/.cxx/RelWithDebInfo/1b5s1f64/x86/RNVectorIconsSpec_autolinked_build/CMakeFiles/react_codegen_RNVectorIconsSpec.dir/react/renderer/components/RNVectorIconsSpec/States.cpp.o

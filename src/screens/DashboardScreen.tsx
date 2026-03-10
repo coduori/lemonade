@@ -22,6 +22,7 @@ import { ManageInsuranceCard } from '../components/ManageInsuranceCard';
 import { ComparisonResultCard } from '../components/ComparisonResultCard';
 import { StatCard } from '../components/StatCard';
 import { PaymentCard } from '../components/PaymentCard';
+import { io } from 'socket.io-client';
 import * as yup from 'yup';
 
 interface DashboardScreenProps {
@@ -124,11 +125,12 @@ const DashboardScreen = ({ username, onLogout }: DashboardScreenProps) => {
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
     const [riders, setRiders] = useState<Rider[]>([]);
+    const [selectedInsurerProduct, setSelectedInsurerProduct] = useState<ComparisonResult | null>(null);
+    const [isPaymentLoading, setIsPaymentLoading] = useState(false);
     const [selectedRiders, setSelectedRiders] = useState<SelectedRider[]>([]);
     const [vehicleData, setVehicleData] = useState<VehicleData>({});
     const [comparisonResults, setComparisonResults] = useState<ComparisonResult[]>([]);
     const [quoteResult, setQuoteResult] = useState<any>(null);
-    const [selectedInsurerProduct, setSelectedInsurerProduct] = useState<ComparisonResult | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const insets = useSafeAreaInsets();
     const { showNotification } = useNotification();
@@ -239,6 +241,72 @@ const DashboardScreen = ({ username, onLogout }: DashboardScreenProps) => {
             console.error(error);
         } finally {
             setIsLoading(false);
+        }
+    };
+    const handlePayment = async (phoneNumber: string) => {
+        if (!phoneNumber || phoneNumber.length < 9) {
+            showNotification('Please enter a valid phone number', 'error');
+            return;
+        }
+
+        // Sanitize phone number: only last 9 digits
+        const sanitizedPhone = phoneNumber.replace(/\D/g, '').slice(-9);
+
+        setIsPaymentLoading(true);
+        try {
+            const response = await fetch(`${config.baseUrl}/the-better-option/prompt-payment`, {
+                method: 'POST',
+                headers: {
+                    ...authHeaders,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    amount: quoteResult?.grossPremium || 5,
+                    merchant: "ANCHORAGE_PAYBILL",
+                    msisdn: sanitizedPhone,
+                }),
+            });
+
+            const data = await response.json();
+            if (response.ok) {
+                const checkoutRequestId = data.data?.checkoutRequestId || data.checkoutRequestId;
+                showNotification('STK Push sent. Please check your phone.', 'info');
+
+                // WebSocket connection
+                const socket = io(config.baseUrl, {
+                    transports: ['websocket'],
+                });
+
+                socket.on('connect', () => {
+                    socket.send(JSON.stringify({ checkoutRequestId }));
+                });
+
+                socket.on('paymentDetails', (paymentInfo: any) => {
+                    console.log('Payment details received:', paymentInfo);
+                    if (paymentInfo.status === 'success' || paymentInfo.ResultCode === 0) {
+                        showNotification('Payment Successful!', 'success');
+                        setViewMode('dashboard');
+                    } else {
+                        showNotification(paymentInfo.ResultDescription || paymentInfo.message || 'Payment failed', 'error');
+                    }
+                    setIsPaymentLoading(false);
+                    socket.disconnect();
+                });
+
+                socket.on('connect_error', (err) => {
+                    console.error('Socket connection error:', err);
+                    setIsPaymentLoading(false);
+                    // Don't disconnect here as it might retry, but let user know
+                });
+
+            } else {
+                showNotification(data.message || 'Payment initiation failed', 'error');
+                setIsPaymentLoading(false);
+            }
+        } catch (error) {
+            showNotification('Network error during payment processing', 'error');
+            console.error(error);
+            setIsPaymentLoading(false);
         }
     };
 
@@ -578,8 +646,9 @@ const DashboardScreen = ({ username, onLogout }: DashboardScreenProps) => {
                             grossPremium={quoteResult.grossPremium}
                             insurerName={selectedInsurerProduct.insurerName}
                             productName={selectedInsurerProduct.productName}
-                            onPaymentPress={(phone) => showNotification(`Payment initiated for ${phone}`, 'info')}
+                            onPaymentPress={handlePayment}
                             showNotification={showNotification}
+                            isLoading={isPaymentLoading}
                         />
                     </>
                 )}

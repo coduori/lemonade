@@ -12,6 +12,7 @@ interface PaymentCardProps {
     productName: string;
     onPaymentPress: (phoneNumber: string) => void;
     showNotification: (message: string, type: 'success' | 'error' | 'info') => void;
+    isLoading?: boolean;
 }
 
 export const PaymentCard: React.FC<PaymentCardProps> = ({
@@ -20,6 +21,7 @@ export const PaymentCard: React.FC<PaymentCardProps> = ({
     productName,
     onPaymentPress,
     showNotification,
+    isLoading = false,
 }) => {
     const [phoneNumber, setPhoneNumber] = React.useState('');
 
@@ -61,11 +63,13 @@ export const PaymentCard: React.FC<PaymentCardProps> = ({
                     value={phoneNumber}
                     onChangeText={setPhoneNumber}
                     style={{ marginTop: 12 }}
+                    editable={!isLoading}
                 />
                 <Button
-                    title="Make Payment"
+                    title={isLoading ? "Processing..." : "Make Payment"}
                     onPress={() => onPaymentPress(phoneNumber)}
                     style={styles.mpesaButton}
+                    disabled={isLoading}
                 />
             </View>
         </Card>
