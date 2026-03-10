@@ -16,6 +16,12 @@ import { useAuth } from '../context/AuthContext';
 import { Input } from '../components/Input';
 import { MaterialIcon } from '../components/MaterialIcon';
 import { ComboBox } from '../components/ComboBox';
+import { buildPremiumPayload, buildQuotePayload } from '../utils/insuranceUtils';
+import { SectionHeader } from '../components/SectionHeader';
+import { ManageInsuranceCard } from '../components/ManageInsuranceCard';
+import { ComparisonResultCard } from '../components/ComparisonResultCard';
+import { StatCard } from '../components/StatCard';
+import { PaymentCard } from '../components/PaymentCard';
 import * as yup from 'yup';
 
 interface DashboardScreenProps {
@@ -83,6 +89,7 @@ const comparePremiumsSchema = yup.object({
         )
         .min(0)
         .required(),
+    includeMandatory: yup.boolean().optional(),
 })
     .test(
         'not-both-vehicle-id-and-data',
@@ -97,7 +104,7 @@ const comparePremiumsSchema = yup.object({
     .noUnknown(true, 'Unknown field provided')
     .strict(true);
 
-type ViewMode = 'dashboard' | 'categories' | 'products' | 'compare' | 'results';
+type ViewMode = 'dashboard' | 'categories' | 'products' | 'compare' | 'results' | 'payment';
 
 interface VehicleData {
     registration?: string;
@@ -120,6 +127,8 @@ const DashboardScreen = ({ username, onLogout }: DashboardScreenProps) => {
     const [selectedRiders, setSelectedRiders] = useState<SelectedRider[]>([]);
     const [vehicleData, setVehicleData] = useState<VehicleData>({});
     const [comparisonResults, setComparisonResults] = useState<ComparisonResult[]>([]);
+    const [quoteResult, setQuoteResult] = useState<any>(null);
+    const [selectedInsurerProduct, setSelectedInsurerProduct] = useState<ComparisonResult | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const insets = useSafeAreaInsets();
     const { showNotification } = useNotification();
@@ -163,24 +172,13 @@ const DashboardScreen = ({ username, onLogout }: DashboardScreenProps) => {
         }
     };
 
-    const handleCompare = async () => {
+    const handleCompare = async (updatedRidersArg?: any) => {
         if (!selectedProduct) return;
         setIsLoading(true);
+        const ridersToUse = Array.isArray(updatedRidersArg) ? updatedRidersArg : selectedRiders;
         try {
-            const payload = {
-                productId: selectedProduct.id,
-                vehicleData: {
-                    ...vehicleData,
-                    vehicleValue: undefined, // ensure it's not in vehicleData if it belongs outside
-                },
-                riderOptions: selectedRiders.map(r => ({
-                    riderId: r.riderId,
-                    value: r.value ? parseFloat(r.value) : undefined,
-                })),
-                vehicleValue: vehicleData.vehicleValue ? parseFloat(vehicleData.vehicleValue) : undefined,
-            };
+            const payload = buildPremiumPayload(selectedProduct.id, vehicleData, ridersToUse);
 
-            // Validate using schema
             await comparePremiumsSchema.validate(payload);
 
             const response = await fetch(`${config.baseUrl}/premiums/compare`, {
@@ -196,12 +194,48 @@ const DashboardScreen = ({ username, onLogout }: DashboardScreenProps) => {
             if (response.ok) {
                 setComparisonResults(data.data || []);
                 setViewMode('results');
-                showNotification('Comparison complete!', 'success');
+                showNotification('Comparison updated!', 'success');
             } else {
                 showNotification(data.message || 'Comparison failed', 'error');
             }
         } catch (error) {
             showNotification('Network error during premium comparison', 'error');
+            console.error(error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleRemoveRider = (riderId: string) => {
+        const updatedRiders = selectedRiders.filter(r => r.riderId !== riderId);
+        setSelectedRiders(updatedRiders);
+        handleCompare(updatedRiders);
+    };
+
+    const handleSelectProvider = async (result: ComparisonResult) => {
+        setSelectedInsurerProduct(result);
+        setIsLoading(true);
+        try {
+            const payload = buildQuotePayload(result.insurerProductId, vehicleData, selectedRiders);
+
+            const response = await fetch(`${config.baseUrl}/premiums/get-quote`, {
+                method: 'POST',
+                headers: {
+                    ...authHeaders,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload),
+            });
+
+            const data = await response.json();
+            if (response.ok) {
+                setQuoteResult(data.data);
+                setViewMode('payment');
+            } else {
+                showNotification(data.message || 'Failed to get final quote', 'error');
+            }
+        } catch (error) {
+            showNotification('Network error during quote request', 'error');
             console.error(error);
         } finally {
             setIsLoading(false);
@@ -238,37 +272,24 @@ const DashboardScreen = ({ username, onLogout }: DashboardScreenProps) => {
 
             <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
                 <View style={styles.statsRow}>
-                    <Card style={styles.statCardSmall}>
-                        <Text style={styles.statLabelSmall}>Active Policies</Text>
-                        <Text style={styles.statValueSmall}>3</Text>
-                    </Card>
-                    <Card style={styles.statCardSmall}>
-                        <Text style={styles.statLabelSmall}>Active Claims</Text>
-                        <Text style={styles.statValueSmall}>0</Text>
-                    </Card>
+                    <StatCard label="Active Policies" value="3" />
+                    <StatCard label="Active Claims" value="0" />
                 </View>
 
 
                 {viewMode === 'dashboard' && (
                     <>
-                        <View style={styles.sectionHeaderRow}>
-                            <Text style={styles.sectionTitle}>Manage Insurance</Text>
-                        </View>
+                        <SectionHeader title="Manage Insurance" />
 
-                        <TouchableOpacity
-                            style={styles.manageCard}
+                        <ManageInsuranceCard
+                            title="Apply for new Policy"
+                            description={isLoading ? 'Loading products...' : 'Start a new insurance application'}
+                            icon="description"
+                            backgroundColor="#E0F2FE"
+                            iconColor="#0EA5E9"
                             onPress={fetchProducts}
                             disabled={isLoading}
-                        >
-                            <View style={[styles.manageIconContainer, { backgroundColor: '#E0F2FE' }]}>
-                                <MaterialIcon name="description" size={24} color="#0EA5E9" />
-                            </View>
-                            <View style={styles.manageDetails}>
-                                <Text style={styles.manageTitle}>Apply for new Policy</Text>
-                                <Text style={styles.manageDescription}>{isLoading ? 'Loading products...' : 'Start a new insurance application'}</Text>
-                            </View>
-                            <MaterialIcon name="chevron-right" size={24} color="#94A3B8" />
-                        </TouchableOpacity>
+                        />
 
                         {[
                             {
@@ -293,28 +314,21 @@ const DashboardScreen = ({ username, onLogout }: DashboardScreenProps) => {
                                 iconColor: '#EF4444',
                             },
                         ].map((item, i) => (
-                            <TouchableOpacity key={i} style={styles.manageCard}>
-                                <View style={[styles.manageIconContainer, { backgroundColor: item.color }]}>
-                                    <MaterialIcon name={item.icon} size={24} color={item.iconColor} />
-                                </View>
-                                <View style={styles.manageDetails}>
-                                    <Text style={styles.manageTitle}>{item.title}</Text>
-                                    <Text style={styles.manageDescription}>{item.description}</Text>
-                                </View>
-                                <MaterialIcon name="chevron-right" size={24} color="#94A3B8" />
-                            </TouchableOpacity>
+                            <ManageInsuranceCard
+                                key={i}
+                                title={item.title}
+                                description={item.description}
+                                icon={item.icon}
+                                backgroundColor={item.color}
+                                iconColor={item.iconColor}
+                            />
                         ))}
                     </>
                 )}
 
                 {viewMode === 'categories' && (
                     <>
-                        <View style={styles.sectionHeaderRow}>
-                            <TouchableOpacity onPress={() => setViewMode('dashboard')} style={styles.backButton}>
-                                <MaterialIcon name="arrow-back" size={24} color={theme.colors.primary} />
-                            </TouchableOpacity>
-                            <Text style={styles.sectionTitle}>Browse Products</Text>
-                        </View>
+                        <SectionHeader title="Browse Products" onBack={() => setViewMode('dashboard')} />
 
                         <Input
                             label=""
@@ -329,9 +343,13 @@ const DashboardScreen = ({ username, onLogout }: DashboardScreenProps) => {
                                 <Text style={styles.subSectionTitle}>Search Results</Text>
                                 {searchResults.length > 0 ? (
                                     searchResults.map((product) => (
-                                        <TouchableOpacity
+                                        <ManageInsuranceCard
                                             key={product.id}
-                                            style={styles.manageCard}
+                                            title={product.name}
+                                            description={product.description}
+                                            icon="verified-user"
+                                            backgroundColor={theme.colors.accentSoft}
+                                            iconColor={theme.colors.primary}
                                             onPress={() => {
                                                 setSelectedProduct(product);
                                                 setVehicleData({});
@@ -341,17 +359,7 @@ const DashboardScreen = ({ username, onLogout }: DashboardScreenProps) => {
                                                 }
                                                 setViewMode('compare');
                                             }}
-                                        >
-                                            <View style={[styles.manageIconContainer, { backgroundColor: theme.colors.accentSoft }]}>
-                                                <MaterialIcon name="verified-user" size={24} color={theme.colors.primary} />
-                                            </View>
-                                            <View style={styles.manageDetails}>
-                                                <Text style={styles.manageTitle}>{product.name}</Text>
-                                                <Text style={styles.manageDescription}>{product.description}</Text>
-                                                <Text style={styles.categoryBadge}>{product.category}</Text>
-                                            </View>
-                                            <MaterialIcon name="chevron-right" size={24} color="#94A3B8" />
-                                        </TouchableOpacity>
+                                        />
                                     ))
                                 ) : (
                                     <Text style={styles.noResultsText}>No products match your search.</Text>
@@ -383,12 +391,7 @@ const DashboardScreen = ({ username, onLogout }: DashboardScreenProps) => {
 
                 {viewMode === 'products' && (
                     <>
-                        <View style={styles.sectionHeaderRow}>
-                            <TouchableOpacity onPress={() => setViewMode('categories')} style={styles.backButton}>
-                                <MaterialIcon name="arrow-back" size={24} color={theme.colors.primary} />
-                            </TouchableOpacity>
-                            <Text style={styles.sectionTitle}>{selectedCategory}</Text>
-                        </View>
+                        <SectionHeader title={selectedCategory || ''} onBack={() => setViewMode('categories')} />
 
                         <Input
                             label=""
@@ -399,9 +402,13 @@ const DashboardScreen = ({ username, onLogout }: DashboardScreenProps) => {
                         />
 
                         {(searchQuery.trim() !== '' ? searchResults.filter(p => p.category === selectedCategory) : filteredProducts).map((product) => (
-                            <TouchableOpacity
+                            <ManageInsuranceCard
                                 key={product.id}
-                                style={styles.manageCard}
+                                title={product.name}
+                                description={product.description}
+                                icon="verified-user"
+                                backgroundColor={theme.colors.accentSoft}
+                                iconColor={theme.colors.primary}
                                 onPress={() => {
                                     setSelectedProduct(product);
                                     setVehicleData({});
@@ -411,28 +418,14 @@ const DashboardScreen = ({ username, onLogout }: DashboardScreenProps) => {
                                     }
                                     setViewMode('compare');
                                 }}
-                            >
-                                <View style={[styles.manageIconContainer, { backgroundColor: theme.colors.accentSoft }]}>
-                                    <MaterialIcon name="verified-user" size={24} color={theme.colors.primary} />
-                                </View>
-                                <View style={styles.manageDetails}>
-                                    <Text style={styles.manageTitle}>{product.name}</Text>
-                                    <Text style={styles.manageDescription}>{product.description}</Text>
-                                </View>
-                                <MaterialIcon name="chevron-right" size={24} color="#94A3B8" />
-                            </TouchableOpacity>
+                            />
                         ))}
                     </>
                 )}
 
                 {viewMode === 'compare' && selectedProduct && (
                     <>
-                        <View style={styles.sectionHeaderRow}>
-                            <TouchableOpacity onPress={() => setViewMode('products')} style={styles.backButton}>
-                                <MaterialIcon name="arrow-back" size={24} color={theme.colors.primary} />
-                            </TouchableOpacity>
-                            <Text style={styles.sectionTitle}>Vehicle Details</Text>
-                        </View>
+                        <SectionHeader title="Vehicle Details" onBack={() => setViewMode('products')} />
 
                         <Card style={styles.formCard}>
                             <Text style={styles.formTitle}>{selectedProduct.name}</Text>
@@ -550,50 +543,22 @@ const DashboardScreen = ({ username, onLogout }: DashboardScreenProps) => {
 
                 {viewMode === 'results' && (
                     <>
-                        <View style={styles.sectionHeaderRow}>
-                            <TouchableOpacity onPress={() => setViewMode('compare')} style={styles.backButton}>
-                                <MaterialIcon name="arrow-back" size={24} color={theme.colors.primary} />
-                            </TouchableOpacity>
-                            <Text style={styles.sectionTitle}>Price Comparison</Text>
-                        </View>
+                        <SectionHeader title="Price Comparison" onBack={() => setViewMode('compare')} />
 
                         <Text style={styles.resultsSubtitle}>
                             We found {comparisonResults.length} options for your {selectedProduct?.name}
                         </Text>
 
                         {comparisonResults.map((result, index) => (
-                            <Card key={index} style={styles.resultCard}>
-                                <View style={styles.resultHeader}>
-                                    <View style={styles.insurerInfo}>
-                                        <Text style={styles.insurerName}>{result.insurerName}</Text>
-                                        <Text style={styles.productNameSnippet}>{result.productName}</Text>
-                                    </View>
-                                    <View style={styles.premiumContainer}>
-                                        <Text style={styles.currencyPrefix}>KES</Text>
-                                        <Text style={styles.premiumValue}>{result.premium.toLocaleString()}</Text>
-                                    </View>
-                                </View>
-
-                                {result.riders && result.riders.length > 0 && (
-                                    <View style={styles.resultRidersList}>
-                                        <Text style={styles.ridersListTitle}>Included Riders & Costs</Text>
-                                        {result.riders.map((rider, rIdx) => (
-                                            <View key={rIdx} style={styles.resultRiderItem}>
-                                                <View style={styles.riderBullet} />
-                                                <Text style={styles.resultRiderName}>{rider.name}</Text>
-                                                <Text style={styles.resultRiderPremium}>
-                                                    KES {rider.premium.toLocaleString()}
-                                                </Text>
-                                            </View>
-                                        ))}
-                                    </View>
-                                )}
-
-                                <TouchableOpacity style={styles.selectProviderButton}>
-                                    <Text style={styles.selectProviderText}>Select Provider</Text>
-                                    <MaterialIcon name="arrow-forward" size={18} color={theme.colors.white} />
-                                </TouchableOpacity>
-                            </Card>
+                            <ComparisonResultCard
+                                key={index}
+                                result={result}
+                                onSelect={handleSelectProvider}
+                                isLoading={isLoading}
+                                selectedRiders={selectedRiders}
+                                ridersRegistry={riders}
+                                onRemoveRider={handleRemoveRider}
+                            />
                         ))}
 
                         {comparisonResults.length === 0 && (
@@ -603,6 +568,19 @@ const DashboardScreen = ({ username, onLogout }: DashboardScreenProps) => {
                                 <Button title="Go Back" onPress={() => setViewMode('compare')} style={{ marginTop: 16 }} />
                             </View>
                         )}
+                    </>
+                )}
+
+                {viewMode === 'payment' && quoteResult && selectedInsurerProduct && (
+                    <>
+                        <SectionHeader title="Complete Payment" onBack={() => setViewMode('results')} />
+                        <PaymentCard
+                            grossPremium={quoteResult.grossPremium}
+                            insurerName={selectedInsurerProduct.insurerName}
+                            productName={selectedInsurerProduct.productName}
+                            onPaymentPress={(phone) => showNotification(`Payment initiated for ${phone}`, 'info')}
+                            showNotification={showNotification}
+                        />
                     </>
                 )}
 
@@ -672,50 +650,6 @@ const styles = StyleSheet.create({
         fontSize: 32,
         fontWeight: '800',
         color: theme.colors.primary,
-    },
-    sectionHeaderRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 20,
-    },
-    sectionTitle: {
-        ...theme.typography.h2,
-        fontSize: 18,
-    },
-    manageCard: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: theme.colors.surface,
-        borderRadius: theme.borderRadius.lg,
-        padding: theme.spacing.md,
-        paddingVertical: theme.spacing.lg,
-        marginBottom: 16,
-        borderWidth: 1,
-        borderColor: '#F1F5F9',
-        ...theme.shadows.subtle,
-    },
-    manageIconContainer: {
-        width: 52,
-        height: 52,
-        borderRadius: theme.borderRadius.md,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginRight: theme.spacing.md,
-    },
-    manageDetails: {
-        flex: 1,
-    },
-    manageTitle: {
-        ...theme.typography.h2,
-        fontSize: 18,
-        color: '#1E293B',
-        marginBottom: 4,
-    },
-    manageDescription: {
-        ...theme.typography.caption,
-        color: '#64748B',
-        fontSize: 14,
     },
     backButton: {
         marginRight: 12,
@@ -799,32 +733,6 @@ const styles = StyleSheet.create({
         borderTopWidth: 1,
         borderTopColor: '#F1F5F9',
     },
-    ridersTitle: {
-        ...theme.typography.label,
-        color: theme.colors.primary,
-        marginBottom: 16,
-    },
-    riderItem: {
-        marginBottom: 16,
-    },
-    riderHeader: {
-        flexDirection: 'row',
-        alignItems: 'flex-start',
-    },
-    riderTextContainer: {
-        marginLeft: 12,
-        flex: 1,
-    },
-    riderName: {
-        ...theme.typography.body,
-        fontWeight: '600',
-        color: '#1E293B',
-    },
-    riderDesc: {
-        ...theme.typography.caption,
-        color: '#64748B',
-        marginTop: 2,
-    },
     riderValueInput: {
         marginTop: 12,
         marginLeft: 36,
@@ -833,97 +741,6 @@ const styles = StyleSheet.create({
         ...theme.typography.body,
         color: '#64748B',
         marginBottom: 24,
-    },
-    resultCard: {
-        marginBottom: 20,
-        padding: 20,
-        borderWidth: 1,
-        borderColor: '#F1F5F9',
-    },
-    resultHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'flex-start',
-        paddingBottom: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: '#F1F5F9',
-    },
-    insurerInfo: {
-        flex: 1,
-        marginRight: 12,
-    },
-    insurerName: {
-        ...theme.typography.label,
-        fontSize: 16,
-        color: '#1E293B',
-    },
-    productNameSnippet: {
-        ...theme.typography.caption,
-        color: theme.colors.primary,
-        marginTop: 4,
-        fontWeight: '600',
-    },
-    premiumContainer: {
-        alignItems: 'flex-end',
-    },
-    currencyPrefix: {
-        ...theme.typography.caption,
-        color: '#94A3B8',
-        fontWeight: '700',
-    },
-    premiumValue: {
-        ...theme.typography.h2,
-        color: theme.colors.primary,
-        fontSize: 22,
-    },
-    resultRidersList: {
-        marginTop: 16,
-        backgroundColor: '#F8FAFC',
-        padding: 12,
-        borderRadius: 12,
-    },
-    ridersListTitle: {
-        ...theme.typography.caption,
-        fontWeight: '700',
-        color: '#475569',
-        marginBottom: 8,
-        textTransform: 'uppercase',
-    },
-    resultRiderItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: 4,
-    },
-    riderBullet: {
-        width: 4,
-        height: 4,
-        borderRadius: 2,
-        backgroundColor: theme.colors.primary,
-        marginRight: 8,
-    },
-    resultRiderName: {
-        ...theme.typography.caption,
-        color: '#334155',
-        flex: 1,
-    },
-    resultRiderPremium: {
-        ...theme.typography.caption,
-        color: '#1E293B',
-        fontWeight: '600',
-    },
-    selectProviderButton: {
-        marginTop: 16,
-        backgroundColor: theme.colors.primary,
-        height: 44,
-        borderRadius: 12,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    selectProviderText: {
-        color: theme.colors.white,
-        fontWeight: '700',
-        marginRight: 8,
     },
     emptyResults: {
         alignItems: 'center',
