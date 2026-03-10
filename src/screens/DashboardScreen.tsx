@@ -43,6 +43,23 @@ interface SelectedRider {
     value?: string;
 }
 
+interface ResultRider {
+    mandatory: boolean;
+    name: string;
+    code: string;
+    premium: number;
+}
+
+interface ComparisonResult {
+    insurerProductId: string;
+    insurerId: string;
+    productId: string;
+    insurerName: string;
+    productName: string;
+    premium: number;
+    riders: ResultRider[];
+}
+
 const vehicleDataSchema = yup.object({
     registration: yup.string().trim().optional(),
     passengerCapacity: yup.string().trim().optional(),
@@ -80,7 +97,7 @@ const comparePremiumsSchema = yup.object({
     .noUnknown(true, 'Unknown field provided')
     .strict(true);
 
-type ViewMode = 'dashboard' | 'categories' | 'products' | 'compare';
+type ViewMode = 'dashboard' | 'categories' | 'products' | 'compare' | 'results';
 
 interface VehicleData {
     registration?: string;
@@ -102,6 +119,7 @@ const DashboardScreen = ({ username, onLogout }: DashboardScreenProps) => {
     const [riders, setRiders] = useState<Rider[]>([]);
     const [selectedRiders, setSelectedRiders] = useState<SelectedRider[]>([]);
     const [vehicleData, setVehicleData] = useState<VehicleData>({});
+    const [comparisonResults, setComparisonResults] = useState<ComparisonResult[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
     const insets = useSafeAreaInsets();
     const { showNotification } = useNotification();
@@ -176,11 +194,11 @@ const DashboardScreen = ({ username, onLogout }: DashboardScreenProps) => {
 
             const data = await response.json();
             if (response.ok) {
-                showNotification('Premium comparison successful!', 'success');
-                // Handle results (e.g., show a results modal or screen)
-                console.log('Comparison results:', data);
+                setComparisonResults(data.data || []);
+                setViewMode('results');
+                showNotification('Comparison complete!', 'success');
             } else {
-                showNotification(data?.message || 'Failed to compare premiums', 'error');
+                showNotification(data.message || 'Comparison failed', 'error');
             }
         } catch (error) {
             showNotification('Network error during premium comparison', 'error');
@@ -530,6 +548,64 @@ const DashboardScreen = ({ username, onLogout }: DashboardScreenProps) => {
                     </>
                 )}
 
+                {viewMode === 'results' && (
+                    <>
+                        <View style={styles.sectionHeaderRow}>
+                            <TouchableOpacity onPress={() => setViewMode('compare')} style={styles.backButton}>
+                                <MaterialIcon name="arrow-back" size={24} color={theme.colors.primary} />
+                            </TouchableOpacity>
+                            <Text style={styles.sectionTitle}>Price Comparison</Text>
+                        </View>
+
+                        <Text style={styles.resultsSubtitle}>
+                            We found {comparisonResults.length} options for your {selectedProduct?.name}
+                        </Text>
+
+                        {comparisonResults.map((result, index) => (
+                            <Card key={index} style={styles.resultCard}>
+                                <View style={styles.resultHeader}>
+                                    <View style={styles.insurerInfo}>
+                                        <Text style={styles.insurerName}>{result.insurerName}</Text>
+                                        <Text style={styles.productNameSnippet}>{result.productName}</Text>
+                                    </View>
+                                    <View style={styles.premiumContainer}>
+                                        <Text style={styles.currencyPrefix}>KES</Text>
+                                        <Text style={styles.premiumValue}>{result.premium.toLocaleString()}</Text>
+                                    </View>
+                                </View>
+
+                                {result.riders && result.riders.length > 0 && (
+                                    <View style={styles.resultRidersList}>
+                                        <Text style={styles.ridersListTitle}>Included Riders & Costs</Text>
+                                        {result.riders.map((rider, rIdx) => (
+                                            <View key={rIdx} style={styles.resultRiderItem}>
+                                                <View style={styles.riderBullet} />
+                                                <Text style={styles.resultRiderName}>{rider.name}</Text>
+                                                <Text style={styles.resultRiderPremium}>
+                                                    KES {rider.premium.toLocaleString()}
+                                                </Text>
+                                            </View>
+                                        ))}
+                                    </View>
+                                )}
+
+                                <TouchableOpacity style={styles.selectProviderButton}>
+                                    <Text style={styles.selectProviderText}>Select Provider</Text>
+                                    <MaterialIcon name="arrow-forward" size={18} color={theme.colors.white} />
+                                </TouchableOpacity>
+                            </Card>
+                        ))}
+
+                        {comparisonResults.length === 0 && (
+                            <View style={styles.emptyResults}>
+                                <MaterialIcon name="search-off" size={64} color="#CBD5E1" />
+                                <Text style={styles.emptyResultsText}>No providers found for the selected criteria.</Text>
+                                <Button title="Go Back" onPress={() => setViewMode('compare')} style={{ marginTop: 16 }} />
+                            </View>
+                        )}
+                    </>
+                )}
+
 
             </ScrollView>
         </View>
@@ -752,6 +828,113 @@ const styles = StyleSheet.create({
     riderValueInput: {
         marginTop: 12,
         marginLeft: 36,
+    },
+    resultsSubtitle: {
+        ...theme.typography.body,
+        color: '#64748B',
+        marginBottom: 24,
+    },
+    resultCard: {
+        marginBottom: 20,
+        padding: 20,
+        borderWidth: 1,
+        borderColor: '#F1F5F9',
+    },
+    resultHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        paddingBottom: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F1F5F9',
+    },
+    insurerInfo: {
+        flex: 1,
+        marginRight: 12,
+    },
+    insurerName: {
+        ...theme.typography.label,
+        fontSize: 16,
+        color: '#1E293B',
+    },
+    productNameSnippet: {
+        ...theme.typography.caption,
+        color: theme.colors.primary,
+        marginTop: 4,
+        fontWeight: '600',
+    },
+    premiumContainer: {
+        alignItems: 'flex-end',
+    },
+    currencyPrefix: {
+        ...theme.typography.caption,
+        color: '#94A3B8',
+        fontWeight: '700',
+    },
+    premiumValue: {
+        ...theme.typography.h2,
+        color: theme.colors.primary,
+        fontSize: 22,
+    },
+    resultRidersList: {
+        marginTop: 16,
+        backgroundColor: '#F8FAFC',
+        padding: 12,
+        borderRadius: 12,
+    },
+    ridersListTitle: {
+        ...theme.typography.caption,
+        fontWeight: '700',
+        color: '#475569',
+        marginBottom: 8,
+        textTransform: 'uppercase',
+    },
+    resultRiderItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 4,
+    },
+    riderBullet: {
+        width: 4,
+        height: 4,
+        borderRadius: 2,
+        backgroundColor: theme.colors.primary,
+        marginRight: 8,
+    },
+    resultRiderName: {
+        ...theme.typography.caption,
+        color: '#334155',
+        flex: 1,
+    },
+    resultRiderPremium: {
+        ...theme.typography.caption,
+        color: '#1E293B',
+        fontWeight: '600',
+    },
+    selectProviderButton: {
+        marginTop: 16,
+        backgroundColor: theme.colors.primary,
+        height: 44,
+        borderRadius: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    selectProviderText: {
+        color: theme.colors.white,
+        fontWeight: '700',
+        marginRight: 8,
+    },
+    emptyResults: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginTop: 60,
+    },
+    emptyResultsText: {
+        ...theme.typography.body,
+        color: '#64748B',
+        textAlign: 'center',
+        marginTop: 16,
     },
 });
 
