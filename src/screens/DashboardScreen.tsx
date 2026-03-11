@@ -90,7 +90,6 @@ const comparePremiumsSchema = yup.object({
         )
         .min(0)
         .required(),
-    includeMandatory: yup.boolean().optional(),
 })
     .test(
         'not-both-vehicle-id-and-data',

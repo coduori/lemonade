@@ -1,5 +1,4 @@
-import React, { useState } from 'react';
-import { StatusBar, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, StatusBar, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import LoginScreen from './src/screens/LoginScreen';
 import DashboardScreen from './src/screens/DashboardScreen';
@@ -11,7 +10,15 @@ import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { Notification } from './src/components/Notification';
 
 const AppContent = () => {
-  const { isLoggedIn, username, logout } = useAuth();
+  const { isLoggedIn, username, logout, isInitializing } = useAuth();
+
+  if (isInitializing) {
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -45,6 +52,11 @@ function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  centered: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: theme.colors.background,
   },
 });
 

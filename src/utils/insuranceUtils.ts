@@ -16,8 +16,7 @@ export interface SelectedRider {
 export const buildPremiumPayload = (
     productId: string,
     vehicleData: VehicleData,
-    selectedRiders: SelectedRider[],
-    includeMandatory: boolean = false
+    selectedRiders: SelectedRider[]
 ) => {
     return {
         productId,
@@ -30,15 +29,13 @@ export const buildPremiumPayload = (
             value: r.value ? parseFloat(r.value) : undefined,
         })),
         vehicleValue: vehicleData.vehicleValue ? parseFloat(vehicleData.vehicleValue) : undefined,
-        includeMandatory,
     };
 };
 
 export const buildQuotePayload = (
     insurerProductId: string,
     vehicleData: VehicleData,
-    selectedRiders: SelectedRider[],
-    includeMandatory: boolean = false
+    selectedRiders: SelectedRider[]
 ) => {
     return {
         insurerProductId,
@@ -51,6 +48,5 @@ export const buildQuotePayload = (
             value: r.value ? parseFloat(r.value) : undefined,
         })),
         vehicleValue: vehicleData.vehicleValue ? parseFloat(vehicleData.vehicleValue) : undefined,
-        includeMandatory,
     };
 };

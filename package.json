@@ -23,10 +23,12 @@
     "clean": "watchman watch-del-all && rm -rf $TMPDIR/metro-cache && cd android && ./gradlew clean"
   },
   "dependencies": {
+    "@react-native-async-storage/async-storage": "^2.1.2",
     "@react-native/new-app-screen": "0.84.1",
     "@types/yup": "^0.29.14",
     "react": "19.2.3",
     "react-native": "0.84.1",
+    "react-native-code-push": "^9.0.1",
     "react-native-safe-area-context": "^5.5.2",
     "react-native-vector-icons": "^10.3.0",
     "socket.io-client": "^4.8.3",
